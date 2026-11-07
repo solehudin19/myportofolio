@@ -302,10 +302,11 @@
                 const items = cert.items.map(item => `
                     <div class="bg-slate-900/50 p-4 rounded-xl border border-slate-700 flex items-start gap-4">
                         <span class="text-2xl mt-1">${item.icon}</span>
-                        <div>
+                        <div class="flex-1">
                             <p class="text-slate-200 font-semibold text-sm">${item.title}</p>
                             <p class="text-slate-500 text-xs mt-1">${item.issuer}</p>
                         </div>
+                        ${item.image ? `<img src="${item.image}" alt="${item.title}" data-zoom class="w-20 h-14 object-cover rounded-lg border border-slate-700 cursor-zoom-in shrink-0 hover:border-brand-500 transition-colors">` : ''}
                     </div>
                 `).join('');
                 return `
@@ -332,9 +333,11 @@
                 return `
                     <div class="portfolio-item ${proj.category} bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden group">
                         <div class="h-48 bg-slate-800 relative overflow-hidden">
-                            <div class="absolute inset-0 flex items-center justify-center bg-gradient-to-br ${theme.from} to-slate-800 group-hover:scale-105 transition-transform duration-500">
-                                <span class="text-slate-600 font-bold">${proj.thumbnailLabel}</span>
-                            </div>
+                            ${proj.image
+                                ? `<img src="${proj.image}" alt="${proj.title}" data-zoom class="absolute inset-0 w-full h-full object-cover cursor-zoom-in group-hover:scale-105 transition-transform duration-500">`
+                                : `<div class="absolute inset-0 flex items-center justify-center bg-gradient-to-br ${theme.from} to-slate-800 group-hover:scale-105 transition-transform duration-500">
+                                    <span class="text-slate-600 font-bold">${proj.thumbnailLabel}</span>
+                                </div>`}
                         </div>
                         <div class="p-6">
                             <div class="flex justify-between items-start mb-4">
@@ -477,11 +480,27 @@
             });
         }
 
+        // Lightbox: klik foto sertifikat/karya untuk memperbesar, klik lagi / Esc untuk menutup
+        function setupLightbox() {
+            const box = document.createElement('div');
+            box.className = 'fixed inset-0 z-[100] hidden items-center justify-center bg-black/85 p-4 cursor-zoom-out';
+            box.innerHTML = '<img class="max-w-full max-h-full rounded-lg">';
+            document.body.append(box);
+            const hide = () => { box.classList.add('hidden'); box.classList.remove('flex'); };
+            document.addEventListener('click', e => {
+                const z = e.target.closest('[data-zoom]');
+                if (z) { box.firstChild.src = z.src; box.classList.remove('hidden'); box.classList.add('flex'); }
+                else if (box.contains(e.target)) hide();
+            });
+            document.addEventListener('keydown', e => { if (e.key === 'Escape') hide(); });
+        }
+
         // 5. Inisialisasi: render semua konten dari data.js, lalu jalankan fitur interaktif
         document.addEventListener('DOMContentLoaded', () => {
             renderAll();
             setupFilterEvents();
             setupFadeInObserver();
+            setupLightbox();
             setTimeout(typeEffect, 1000);
         });
 
