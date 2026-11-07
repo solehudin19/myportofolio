@@ -69,9 +69,9 @@ const SCH={
  profile:{title:'Profil',f:[['greeting','Sapaan hero'],['name','Nama'],['roles','Peran (1 baris = 1 peran, untuk efek mengetik)','lines'],['heroDescription','Deskripsi hero','area'],['photoUrl','Foto profil','photo'],['photoInitial','Huruf inisial (dipakai jika tanpa foto)'],['cvUrl','Link CV (mis. link Google Drive)'],['aboutParagraphs','Tentang saya (pisahkan paragraf dengan baris kosong)','paras'],['contactDescription','Teks kontak','area'],['contactEmail','Email kontak'],['footerName','Nama di footer']]},
  experience:{title:'Pengalaman',lab:'title',f:[['period','Periode'],['title','Judul'],['subtitle','Subjudul'],['description','Deskripsi','area'],['current','Sedang berjalan (ditandai aktif)','bool']]},
  skills:{title:'Keahlian',lab:'label',f:[['icon','Ikon (2 huruf)'],['label','Nama skill'],['color','Warna saat hover','color']]},
- certifications:{title:'Sertifikasi',lab:'category',f:[['theme','Warna kartu','theme'],['category','Nama kategori'],['description','Deskripsi','area'],['items','Daftar sertifikat','list',{lab:'title',f:[['icon','Emoji'],['title','Judul sertifikat'],['issuer','Penerbit & tahun']]}]]},
+ certifications:{title:'Sertifikasi',lab:'category',f:[['theme','Warna kartu','theme'],['category','Nama kategori'],['description','Deskripsi','area'],['items','Daftar sertifikat','list',{lab:'title',f:[['icon','Emoji'],['title','Judul sertifikat'],['issuer','Penerbit & tahun'],['image','Foto sertifikat (opsional)','photo']]}]]},
  filters:{title:'Filter',lab:'label',f:[['label','Teks tombol'],['value','Kode filter (huruf kecil, tanpa spasi)']]},
- projects:{title:'Proyek',lab:'title',f:[['title','Judul proyek'],['category','Kode filter (lebih dari satu: pisah spasi, mis. "robotik frontend")'],['theme','Warna kartu','theme'],['thumbnailLabel','Teks thumbnail'],['description','Deskripsi','area'],['tags','Tag teknologi (pisah koma)','csv'],['link','Link proyek']]}
+ projects:{title:'Proyek',lab:'title',f:[['title','Judul proyek'],['category','Kode filter (lebih dari satu: pisah spasi, mis. "robotik frontend")'],['theme','Warna kartu','theme'],['image','Foto karya / screenshot proyek (opsional)','photo'],['thumbnailLabel','Teks thumbnail (tampil jika tanpa foto)'],['description','Deskripsi','area'],['tags','Tag teknologi (pisah koma)','csv'],['link','Link proyek']]}
 };
 const LISTS=['experience','skills','certifications','filters','projects'];
 let data,tab='profile',dirty=false;
@@ -81,7 +81,7 @@ const status=(t,bad)=>{$('st').textContent=t;$('st').className='text-sm '+(bad?'
 const btn=(t,c)=>{const b=document.createElement('button');b.type='button';b.textContent=t;b.className='rounded-lg text-sm '+c;return b};
 const blank=fs=>Object.fromEntries(fs.map(([k,,t])=>[k,t==='list'?[]:t==='bool'?false:t==='theme'?'brand':t==='color'?'#6366f1':'']));
 
-const shrink=f=>new Promise(r=>{const im=new Image();im.onload=()=>{const s=Math.min(1,480/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=im.width*s;c.height=im.height*s;c.getContext('2d').drawImage(im,0,0,c.width,c.height);r(c.toDataURL('image/jpeg',.8))};im.src=URL.createObjectURL(f)});
+const shrink=(f,max=900)=>new Promise(r=>{const im=new Image();im.onload=()=>{const s=Math.min(1,max/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=im.width*s;c.height=im.height*s;c.getContext('2d').drawImage(im,0,0,c.width,c.height);r(c.toDataURL('image/jpeg',.72))};im.src=URL.createObjectURL(f)});
 
 const ENC={lines:a=>(a||[]).join('\n'),paras:a=>(a||[]).join('\n\n'),csv:a=>(a||[]).join(', ')};
 const DEC={lines:s=>s.split('\n').map(x=>x.trim()).filter(Boolean),paras:s=>s.split(/\n\s*\n/).map(x=>x.trim()).filter(Boolean),csv:s=>s.split(',').map(x=>x.trim()).filter(Boolean)};
@@ -94,9 +94,9 @@ function fld(obj,[k,lab,t='text',sub]){
     w.innerHTML=`<label class="flex items-center gap-2 text-sm"><input type="checkbox" ${obj[k]?'checked':''}> ${esc(lab)}</label>`;
     w.querySelector('input').onchange=e=>{obj[k]=e.target.checked;mark()};return w}
   if(t==='photo'){
-    w.innerHTML=l+`<div class="flex items-center gap-3"><img class="w-16 h-16 rounded-lg object-cover bg-slate-800 ${obj[k]?'':'hidden'}" src="${esc(obj[k])}"><input type="file" accept="image/*" class="text-xs"><button type="button" class="text-xs text-red-400">Hapus foto</button></div><p class="text-xs text-slate-500 mt-1">Foto otomatis dikecilkan (maks 480px) dan disimpan di database.</p>`;
+    w.innerHTML=l+`<div class="flex items-center gap-3"><img class="w-20 h-16 rounded-lg object-cover bg-slate-800 ${obj[k]?'':'hidden'}" src="${esc(obj[k])}"><input type="file" accept="image/*" class="text-xs"><button type="button" class="text-xs text-red-400">Hapus foto</button></div><p class="text-xs text-slate-500 mt-1">Foto otomatis dikecilkan dan dikompres, lalu disimpan di database (tanpa Storage). Gunakan foto yang penting saja agar situs tetap ringan.</p>`;
     const img=w.querySelector('img');
-    w.querySelector('input').onchange=async e=>{const f=e.target.files[0];if(!f)return;obj[k]=await shrink(f);img.src=obj[k];img.classList.remove('hidden');mark()};
+    w.querySelector('input').onchange=async e=>{const f=e.target.files[0];if(!f)return;obj[k]=await shrink(f,k==='photoUrl'?480:900);img.src=obj[k];img.classList.remove('hidden');mark()};
     w.querySelector('button').onclick=()=>{obj[k]='';img.classList.add('hidden');mark()};
     return w}
   let el;
@@ -158,7 +158,9 @@ async function load(){
 $('save').onclick=async()=>{
   const bad=data.projects.filter(p=>!(p.category||'').trim().split(/\s+/).every(c=>data.filters.some(f=>f.value===c)));
   if(bad.length&&!confirm('Kode filter pada proyek ini tidak cocok dengan tab Filter, sehingga tidak muncul saat difilter:\n\n'+bad.map(p=>'• '+p.title).join('\n')+'\n\nTetap simpan?'))return;
-  try{await set(R,clone(data));dirty=false;status('Tersimpan ✓ Refresh halaman portofolio untuk melihat hasilnya')}
+  const kb=Math.round(JSON.stringify(data).length/1024);
+  if(kb>8000){status('Data terlalu besar ('+kb+' KB, batas ±8000 KB). Kurangi jumlah foto.',1);return}
+  try{await set(R,clone(data));dirty=false;status('Tersimpan ✓ ('+kb+' KB). Refresh halaman portofolio untuk melihat hasilnya')}
   catch(e){status('Gagal menyimpan: '+e.message,1)}
 };
 
