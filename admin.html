@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Admin Portofolio</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="firebase-config.js"></script>
+<script src="data.js"></script>
+<style>
+.i{width:100%;background:#0f172a;border:1px solid #334155;border-radius:.5rem;padding:.5rem .75rem;color:#e2e8f0;font-size:.875rem}
+.i:focus{outline:none;border-color:#6366f1}
+input[type=color].i{padding:.15rem;height:2.4rem}
+</style>
+</head>
+<body class="bg-slate-950 text-slate-300 min-h-screen">
+
+<!-- LOGIN -->
+<div id="login" class="hidden min-h-screen flex items-center justify-center p-4">
+  <form id="lf" class="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-2xl p-8 space-y-4">
+    <h1 class="text-xl font-bold text-white text-center">Admin Portofolio</h1>
+    <input id="em" type="email" placeholder="Email admin" class="i" required autocomplete="username">
+    <input id="pw" type="password" placeholder="Password" class="i" required autocomplete="current-password">
+    <button class="w-full bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg py-2 font-medium">Masuk</button>
+    <p id="le" class="text-red-400 text-sm text-center"></p>
+  </form>
+</div>
+
+<!-- APLIKASI -->
+<div id="app" class="hidden max-w-3xl mx-auto p-4 pb-28">
+  <div class="flex items-center justify-between py-4">
+    <h1 class="text-xl font-bold text-white">Admin Portofolio</h1>
+    <span class="flex gap-2 text-sm">
+      <a href="portofolio_cv3.html" target="_blank" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700">Lihat situs</a>
+      <button id="out" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700">Keluar</button>
+    </span>
+  </div>
+  <div id="tabs" class="flex flex-wrap gap-2 mb-6"></div>
+  <div id="panel" class="space-y-4"></div>
+  <div class="fixed bottom-0 inset-x-0 bg-slate-900/95 border-t border-slate-800 p-3">
+    <div class="max-w-3xl mx-auto flex items-center justify-between gap-3">
+      <span id="st" class="text-sm text-slate-400"></span>
+      <button id="save" class="bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg px-6 py-2 font-medium">Simpan &amp; Terbitkan</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import {initializeApp} from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
+import {getAuth,signInWithEmailAndPassword,onAuthStateChanged,signOut} from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
+import {getDatabase,ref,get,set} from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js';
+
+const $=id=>document.getElementById(id);
+const clone=o=>JSON.parse(JSON.stringify(o));
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const THEMES=['cyan','purple','brand','emerald'];
+
+if(String(window.FIREBASE_CONFIG?.apiKey).startsWith('ISI')){
+  document.body.innerHTML='<p class="p-8 text-red-400">Isi dulu firebase-config.js dengan config Firebase Anda.</p>';
+  throw new Error('config kosong');
+}
+const app=initializeApp(window.FIREBASE_CONFIG),auth=getAuth(app),R=ref(getDatabase(app),'portfolio');
+
+// Skema form: [kunci, label, tipe, sub-skema]
+const SCH={
+ profile:{title:'Profil',f:[['greeting','Sapaan hero'],['name','Nama'],['roles','Peran (1 baris = 1 peran, untuk efek mengetik)','lines'],['heroDescription','Deskripsi hero','area'],['photoUrl','Foto profil','photo'],['photoInitial','Huruf inisial (dipakai jika tanpa foto)'],['cvUrl','Link CV (mis. link Google Drive)'],['aboutParagraphs','Tentang saya (pisahkan paragraf dengan baris kosong)','paras'],['contactDescription','Teks kontak','area'],['contactEmail','Email kontak'],['footerName','Nama di footer']]},
+ experience:{title:'Pengalaman',lab:'title',f:[['period','Periode'],['title','Judul'],['subtitle','Subjudul'],['description','Deskripsi','area'],['current','Sedang berjalan (ditandai aktif)','bool']]},
+ skills:{title:'Keahlian',lab:'label',f:[['icon','Ikon (2 huruf)'],['label','Nama skill'],['color','Warna saat hover','color']]},
+ certifications:{title:'Sertifikasi',lab:'category',f:[['theme','Warna kartu','theme'],['category','Nama kategori'],['description','Deskripsi','area'],['items','Daftar sertifikat','list',{lab:'title',f:[['icon','Emoji'],['title','Judul sertifikat'],['issuer','Penerbit & tahun']]}]]},
+ filters:{title:'Filter',lab:'label',f:[['label','Teks tombol'],['value','Kode filter (huruf kecil, tanpa spasi)']]},
+ projects:{title:'Proyek',lab:'title',f:[['title','Judul proyek'],['category','Kode filter (lebih dari satu: pisah spasi, mis. "robotik frontend")'],['theme','Warna kartu','theme'],['thumbnailLabel','Teks thumbnail'],['description','Deskripsi','area'],['tags','Tag teknologi (pisah koma)','csv'],['link','Link proyek']]}
+};
+const LISTS=['experience','skills','certifications','filters','projects'];
+let data,tab='profile',dirty=false;
+
+const mark=()=>{dirty=true;$('st').textContent='Ada perubahan belum disimpan';$('st').className='text-sm text-amber-400'};
+const status=(t,bad)=>{$('st').textContent=t;$('st').className='text-sm '+(bad?'text-red-400':'text-emerald-400')};
+const btn=(t,c)=>{const b=document.createElement('button');b.type='button';b.textContent=t;b.className='rounded-lg text-sm '+c;return b};
+const blank=fs=>Object.fromEntries(fs.map(([k,,t])=>[k,t==='list'?[]:t==='bool'?false:t==='theme'?'brand':t==='color'?'#6366f1':'']));
+
+const shrink=f=>new Promise(r=>{const im=new Image();im.onload=()=>{const s=Math.min(1,480/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=im.width*s;c.height=im.height*s;c.getContext('2d').drawImage(im,0,0,c.width,c.height);r(c.toDataURL('image/jpeg',.8))};im.src=URL.createObjectURL(f)});
+
+const ENC={lines:a=>(a||[]).join('\n'),paras:a=>(a||[]).join('\n\n'),csv:a=>(a||[]).join(', ')};
+const DEC={lines:s=>s.split('\n').map(x=>x.trim()).filter(Boolean),paras:s=>s.split(/\n\s*\n/).map(x=>x.trim()).filter(Boolean),csv:s=>s.split(',').map(x=>x.trim()).filter(Boolean)};
+
+function fld(obj,[k,lab,t='text',sub]){
+  const w=document.createElement('div');
+  const l=`<label class="block text-xs text-slate-400 mb-1">${esc(lab)}</label>`;
+  if(t==='list'){w.innerHTML=l;w.append(listUI(obj[k]??=[],sub));return w}
+  if(t==='bool'){
+    w.innerHTML=`<label class="flex items-center gap-2 text-sm"><input type="checkbox" ${obj[k]?'checked':''}> ${esc(lab)}</label>`;
+    w.querySelector('input').onchange=e=>{obj[k]=e.target.checked;mark()};return w}
+  if(t==='photo'){
+    w.innerHTML=l+`<div class="flex items-center gap-3"><img class="w-16 h-16 rounded-lg object-cover bg-slate-800 ${obj[k]?'':'hidden'}" src="${esc(obj[k])}"><input type="file" accept="image/*" class="text-xs"><button type="button" class="text-xs text-red-400">Hapus foto</button></div><p class="text-xs text-slate-500 mt-1">Foto otomatis dikecilkan (maks 480px) dan disimpan di database.</p>`;
+    const img=w.querySelector('img');
+    w.querySelector('input').onchange=async e=>{const f=e.target.files[0];if(!f)return;obj[k]=await shrink(f);img.src=obj[k];img.classList.remove('hidden');mark()};
+    w.querySelector('button').onclick=()=>{obj[k]='';img.classList.add('hidden');mark()};
+    return w}
+  let el;
+  if(['area','lines','paras'].includes(t)){el=document.createElement('textarea');el.rows=t==='area'?3:5}
+  else if(t==='theme'){el=document.createElement('select');el.innerHTML=THEMES.map(x=>`<option>${x}</option>`).join('')}
+  else{el=document.createElement('input');if(t==='color')el.type='color'}
+  el.className='i';
+  el.value=ENC[t]?ENC[t](obj[k]):(obj[k]??'');
+  el.oninput=()=>{obj[k]=DEC[t]?DEC[t](el.value):el.value;mark()};
+  w.innerHTML=l;w.append(el);return w;
+}
+
+function listUI(arr,sub){
+  const box=document.createElement('div');box.className='space-y-3';
+  const draw=()=>{
+    box.innerHTML='';
+    arr.forEach((it,i)=>{
+      const c=document.createElement('div');c.className='bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3';
+      const h=document.createElement('div');h.className='flex items-center justify-between gap-2';
+      h.innerHTML=`<b class="text-white text-sm truncate">${esc(it[sub.lab]||'(item baru)')}</b><span class="flex gap-1 shrink-0"></span>`;
+      [['↑',-1],['↓',1],['✕',0]].forEach(([s,d])=>{
+        const b=btn(s,'bg-slate-800 hover:bg-slate-700 px-2 py-1');
+        b.onclick=()=>{
+          if(!d){if(!confirm('Hapus item ini?'))return;arr.splice(i,1)}
+          else{const j=i+d;if(j<0||j>=arr.length)return;[arr[i],arr[j]]=[arr[j],arr[i]]}
+          mark();draw()};
+        h.lastChild.append(b)});
+      c.append(h);sub.f.forEach(f=>c.append(fld(it,f)));box.append(c)});
+    const a=btn('+ Tambah','bg-indigo-600/20 text-indigo-300 hover:bg-indigo-600/30 w-full py-2');
+    a.onclick=()=>{arr.push(blank(sub.f));mark();draw()};box.append(a)};
+  draw();return box;
+}
+
+function render(){
+  $('tabs').innerHTML='';
+  Object.entries(SCH).forEach(([k,v])=>{
+    const b=btn(v.title,'px-4 py-1.5 '+(k===tab?'bg-indigo-600 text-white':'bg-slate-800 hover:bg-slate-700'));
+    b.onclick=()=>{tab=k;render()};$('tabs').append(b)});
+  const p=$('panel');p.innerHTML='';
+  if(tab==='profile')SCH.profile.f.forEach(f=>p.append(fld(data.profile,f)));
+  else p.append(listUI(data[tab],SCH[tab]));
+}
+
+function norm(d){
+  d=clone(d);d.profile=d.profile||{};
+  LISTS.forEach(k=>d[k]=d[k]||[]);
+  d.certifications.forEach(c=>c.items=c.items||[]);
+  d.projects.forEach(p=>p.tags=p.tags||[]);
+  return d;
+}
+
+async function load(){
+  const s=await get(R);
+  data=norm(s.exists()?s.val():portfolioData);
+  status(s.exists()?'Data dimuat dari Firebase':'Firebase masih kosong: memakai data awal dari data.js. Klik Simpan untuk menerbitkan.');
+  dirty=false;render();
+}
+
+$('save').onclick=async()=>{
+  const bad=data.projects.filter(p=>!(p.category||'').trim().split(/\s+/).every(c=>data.filters.some(f=>f.value===c)));
+  if(bad.length&&!confirm('Kode filter pada proyek ini tidak cocok dengan tab Filter, sehingga tidak muncul saat difilter:\n\n'+bad.map(p=>'• '+p.title).join('\n')+'\n\nTetap simpan?'))return;
+  try{await set(R,clone(data));dirty=false;status('Tersimpan ✓ Refresh halaman portofolio untuk melihat hasilnya')}
+  catch(e){status('Gagal menyimpan: '+e.message,1)}
+};
+
+$('lf').addEventListener('submit',async e=>{
+  e.preventDefault();$('le').textContent='';
+  try{await signInWithEmailAndPassword(auth,$('em').value.trim(),$('pw').value)}
+  catch{$('le').textContent='Email atau password salah.'}
+});
+$('out').onclick=()=>signOut(auth);
+
+// Auto-logout setelah 5 menit tanpa aktivitas
+let idle;const bump=()=>{clearTimeout(idle);idle=setTimeout(()=>{if(auth.currentUser)signOut(auth)},300000)};
+['click','keydown','input','touchstart'].forEach(ev=>addEventListener(ev,bump));
+addEventListener('beforeunload',e=>{if(dirty){e.preventDefault();e.returnValue=''}});
+
+onAuthStateChanged(auth,u=>{
+  $('login').classList.toggle('hidden',!!u);$('app').classList.toggle('hidden',!u);
+  if(u){bump();load().catch(e=>status('Gagal memuat: '+e.message,1))}
+});
+</script>
+</body>
+</html>
