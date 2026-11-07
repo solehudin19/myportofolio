@@ -17,7 +17,7 @@ input[type=color].i{padding:.15rem;height:2.4rem}
 <body class="bg-slate-950 text-slate-300 min-h-screen">
 
 <!-- LOGIN -->
-<div id="login" class="hidden min-h-screen flex items-center justify-center p-4">
+<div id="login" class="min-h-screen flex items-center justify-center p-4">
   <form id="lf" class="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-2xl p-8 space-y-4">
     <h1 class="text-xl font-bold text-white text-center">Admin Portofolio</h1>
     <input id="em" type="email" placeholder="Email admin" class="i" required autocomplete="username">
@@ -56,11 +56,13 @@ const clone=o=>JSON.parse(JSON.stringify(o));
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const THEMES=['cyan','purple','brand','emerald'];
 
-if(String(window.FIREBASE_CONFIG?.apiKey).startsWith('ISI')){
-  document.body.innerHTML='<p class="p-8 text-red-400">Isi dulu firebase-config.js dengan config Firebase Anda.</p>';
-  throw new Error('config kosong');
-}
-const app=initializeApp(window.FIREBASE_CONFIG),auth=getAuth(app),R=ref(getDatabase(app),'portfolio');
+window.__adminOk=true;
+const showErr=m=>{document.body.innerHTML='<div class="p-8 max-w-xl mx-auto text-red-300 space-y-2"><b class="text-white">Admin belum bisa dimuat</b><p>'+m+'</p></div>'};
+const cfg=window.FIREBASE_CONFIG;
+if(!cfg)throw showErr('File <code>firebase-config.js</code> tidak ditemukan. Pastikan namanya persis <code>firebase-config.js</code> (pakai tanda hubung, bukan garis bawah) dan ada di folder yang sama dengan admin.html.');
+if(String(cfg.apiKey).startsWith('ISI')||!cfg.databaseURL||String(cfg.databaseURL).includes('ISI'))throw showErr('<code>firebase-config.js</code> belum diisi dengan config Firebase Anda (apiKey, authDomain, databaseURL, projectId, appId).');
+let app,auth,R;
+try{app=initializeApp(cfg);auth=getAuth(app);R=ref(getDatabase(app),'portfolio')}catch(e){throw showErr('Config Firebase tidak valid: '+e.message)}
 
 // Skema form: [kunci, label, tipe, sub-skema]
 const SCH={
@@ -175,7 +177,8 @@ addEventListener('beforeunload',e=>{if(dirty){e.preventDefault();e.returnValue='
 onAuthStateChanged(auth,u=>{
   $('login').classList.toggle('hidden',!!u);$('app').classList.toggle('hidden',!u);
   if(u){bump();load().catch(e=>status('Gagal memuat: '+e.message,1))}
-});
+},e=>{$('le').textContent='Error Firebase Auth: '+e.message});
 </script>
+<script>setTimeout(()=>{if(!window.__adminOk)document.body.innerHTML='<p style="padding:2rem;color:#fca5a5">Skrip admin gagal dimuat. Buka Console (F12) untuk detail, dan pastikan koneksi internet aktif.</p>'},5000)</script>
 </body>
 </html>
