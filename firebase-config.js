@@ -1,17 +1,6 @@
-/* Isi dengan config proyek Firebase Anda (Console > Project settings > Your apps > Web app).
-   Boleh memakai proyek Firebase yang sama dengan sistem bel. Nilai ini memang publik;
-   keamanan diatur oleh Rules database, bukan oleh config ini. *
+/* Config Firebase proyek portofoliocv-f050a.
+   Nilai ini memang publik; keamanan diatur oleh Rules database, bukan config ini. */
 window.FIREBASE_CONFIG = {
-  apiKey: "ISI_API_KEY",
-  authDomain: "ISI.firebaseapp.com",
-  databaseURL: "https://ISI-default-rtdb.firebaseio.com",
-  projectId: "ISI",
-  appId: "ISI"
-};*/
-
-
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
-const firebaseConfig = {
   apiKey: "AIzaSyBMZhXk_eo_rYaOapGIvslCJ4KaSIhRP7Q",
   authDomain: "portofoliocv-f050a.firebaseapp.com",
   databaseURL: "https://portofoliocv-f050a-default-rtdb.asia-southeast1.firebasedatabase.app",
